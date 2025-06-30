@@ -6,6 +6,7 @@ const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'some_default_jwt_secret';
 const JWT_EXPIRES_IN = '1d';
+const FRONTEND_URL = "https://py-autopluse.netlify.app" || 'http://localhost:3000';
 
 // 🔗 Initiate Google login
 router.get('/google',
@@ -18,16 +19,15 @@ router.get('/google/callback',
   async (req, res) => {
     const user = req.user;
 
-    // 🪙 Create JWT
     const payload = { userId: user._id };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
-    // 🔁 Redirect back to frontend with token
-    res.redirect(`http://localhost:3000/google-auth-success?token=${token}`);
+    // ✅ Redirect back to frontend
+    res.redirect(`${FRONTEND_URL}/google-auth-success?token=${token}`);
   }
 );
 
-// 🧠 Optional: Route to return user info after token-based login
+// 🔍 Get user info from token
 router.get('/me', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer '))
@@ -53,5 +53,4 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// ✅ Don't forget this line!
 export default router;
