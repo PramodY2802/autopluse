@@ -1,42 +1,56 @@
 import express from 'express';
 import passport from 'passport';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'some_default_jwt_secret';
 const JWT_EXPIRES_IN = '1d';
-const FRONTEND_URL = "https://py-autopluse.netlify.app" || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-// 🔗 Initiate Google login
+// 🔗 Start Google OAuth flow
 router.get('/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    session: false,
+    state: true
+  })
 );
 
-// 🔁 Handle Google callback
+// 🔁 Google OAuth callback
 router.get('/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
+  passport.authenticate('google', {
+    session: false,
+    failureRedirect: `${FRONTEND_URL}/login`,
+  }),
   async (req, res) => {
     const user = req.user;
 
     const payload = { userId: user._id };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
-    // ✅ Redirect back to frontend
+    // 🔁 Redirect to frontend with token
     res.redirect(`${FRONTEND_URL}/google-auth-success?token=${token}`);
   }
 );
 
-// 🔍 Get user info from token
+// 🔍 Get user data from token
 router.get('/me', async (req, res) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer '))
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Unauthorized' });
+  }
 
   const token = authHeader.split(' ')[1];
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await import('../models/User.js').then(m => m.default.findById(decoded.userId));
+
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     res.json({
